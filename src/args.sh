@@ -65,34 +65,79 @@ stow_sh::is_adopt() { [[ "${_stow_sh_adopt:-false}" == true ]]; }
 #
 # Usage: stow_sh::usage <exit_code>
 stow_sh::usage() {
-    echo
-    echo "Usage: stow.sh [OPTIONS] [<directory>]"
-    echo
-    echo "Options:"
-    echo "  -d DIR, --dir=DIR             Source directory (default: current directory)"
-    echo "  -t DIR, --target=DIR          Target directory (default: parent of source)"
-    echo "  -S PATH, --stow PATH          Stow the specified path(s)"
-    echo "  -D PATH, --delete PATH        Unstow the specified path(s)"
-    echo "  -R PATH, --restow PATH        Restow the specified path(s)"
-    echo "  -i REGEX, --ignore=REGEX      Ignore pattern(s)"
-    echo "  -I GLOB, --ignore-glob=GLOB   Ignore glob pattern(s)"
-    echo "  --defer=PATH                  Defer link creation for specified path (repeatable)"
-    echo "  --override=PATH               Override for specified path (repeatable)"
-    echo "  --adopt                       Adopt pre-existing files into stow structure"
-    echo "  --no-folding                  Disable directory folding"
-    echo "  --no-xdg                      Disable XDG-aware fold barriers"
-    echo "  -g, --git                     Enable git-aware filtering"
-    echo "  -G, --no-git                  Disable git-aware filtering"
-    echo "  -f, --force                   Overwrite existing symlinks"
-    echo "  -n, --no                      Dry-run mode (no filesystem changes)"
-    echo "  -v, --verbose                 Increase verbosity (repeatable)"
-    echo "      --verbose=N               Set verbosity level directly"
-    echo "      --color=WHEN              Colorize output: never, always, auto"
-    echo "  -h, --help                    Show this help and exit"
-    echo "      --version                 Show version and exit"
-    echo
-    echo "Positional Arguments:"
-    echo "  <directory>                   Fallback stow root if not using -S/-D/-R"
+    cat <<'HELPEOF'
+
+stow.sh — a symlink farm manager for dotfiles
+
+Creates symlinks from a source (dotfiles) directory into a target (home)
+directory. Supports conditional files (## annotations), directory folding,
+and git-aware filtering.
+
+Usage:
+  stow.sh [OPTIONS] [PACKAGE ...]
+  stow.sh -S PACKAGE ... [-t TARGET] [-d SOURCE]
+  stow.sh -D PACKAGE ... [-t TARGET]
+  stow.sh -R PACKAGE ... [-t TARGET] [-d SOURCE]
+
+A PACKAGE is a subdirectory of the source directory containing files to
+symlink. If no packages are given, all subdirectories of the source
+directory are stowed (or the source itself if it has no subdirectories).
+
+Actions:
+  -S, --stow PACKAGE ...    Create symlinks for the given package(s)
+  -D, --delete PACKAGE ...  Remove symlinks for the given package(s)
+  -R, --restow PACKAGE ...  Remove then re-create symlinks (useful after
+                            updating dotfiles)
+
+Directories:
+  -d, --dir DIR             Source directory where packages live
+                            (default: current directory)
+  -t, --target DIR          Target directory for symlinks
+                            (default: parent of source directory)
+
+Filtering:
+  -g, --git                 Use .gitignore rules to skip ignored files
+  -G, --no-git              Disable git-aware filtering
+                            (default: auto-detect based on git repo)
+  -i, --ignore REGEX ...    Skip files matching regex pattern(s)
+  -I, --ignore-glob GLOB ...
+                            Skip files matching glob pattern(s)
+
+Folding:
+  --no-folding              Symlink each file individually instead of
+                            symlinking entire directories when possible
+  --no-xdg                  Don't treat XDG directories (e.g. ~/.config)
+                            as fold barriers
+
+Conflict handling:
+  -f, --force               Overwrite existing symlinks at the target
+  --adopt                   Move existing target files into the source
+                            package, then create the symlink
+  --defer=REGEX             Skip if a symlink from another package
+                            already exists at the target (repeatable)
+  --override=REGEX          Replace symlinks from other packages that
+                            match the pattern (repeatable)
+
+Output:
+  -v, --verbose             Show more detail (repeat for more: -vvv)
+      --verbose=N           Set verbosity to level N directly
+      --color=WHEN          Color output: auto, always, never (default: auto)
+  -n, --no, --dry-run       Show what would be done without making changes
+
+Info:
+  -h, --help                Show this help
+      --version             Show version
+
+Examples:
+  stow.sh                   Stow all packages from . into ..
+  stow.sh vim bash          Stow only the vim and bash packages
+  stow.sh -t ~ -d ~/dotfiles -S vim
+                            Stow vim from ~/dotfiles into ~
+  stow.sh -D vim            Remove symlinks created by the vim package
+  stow.sh -R vim            Re-stow vim (unstow + stow)
+  stow.sh -n -vv            Dry-run with verbose output — see what
+                            would happen without changing anything
+HELPEOF
     exit "$1"
 }
 
@@ -148,7 +193,7 @@ stow_sh::parse_args() {
                 stow_sh::log debug 2 "Enabled force mode"
                 shift
                 ;;
-            -n | --no)
+            -n | --no | --dry-run)
                 _stow_sh_dry_run=true
                 stow_sh::log debug 2 "Enabled dry-run mode"
                 shift
