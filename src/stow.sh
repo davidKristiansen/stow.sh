@@ -15,13 +15,14 @@
 # Depends on: log.sh, args.sh (is_dry_run, is_force, is_adopt),
 #             conditions.sh (check_conditions, sanitize_path, has_annotation)
 
-# Log "Already stowed" at debug level.
-# The user-facing report is handled by stow_sh::report.
+# Log "Already stowed" at debug level only.
+#
+# This is not reported to stdout — it's not actionable information.
+# The user cares about what changed, not what was already fine.
 #
 # Usage: stow_sh::__log_already_stowed "description"
 stow_sh::__log_already_stowed() {
     stow_sh::log debug 1 "Already stowed: $1"
-    stow_sh::report "~" "already stowed $1"
 }
 
 # Stow resolved targets from a package into the target directory.
