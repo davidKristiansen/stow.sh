@@ -309,3 +309,16 @@ chore: bump version to 0.9.0
 3. When fixing known issues, remove them from the known issues list above.
 4. When introducing new known issues, add them here.
 5. Keep this file stateless — it should describe the **current** state of the project, not history.
+
+### Releasing / Version Bumps
+
+**Always use `make release`** to bump versions. Never manually edit `src/version.sh` or `.cz.toml`, and never manually create version tags.
+
+`make release` runs the full pipeline:
+1. Checks for a clean working tree
+2. Installs git hooks
+3. Runs the test suite
+4. Calls `cz bump` which updates both `src/version.sh` and `.cz.toml`, creates the bump commit, and tags it with the `v` prefix (`v0.10.3`, etc.)
+5. Updates `CHANGELOG.md` and amends the bump commit
+
+After `make release` completes, push with: `git push && git push --tags`
