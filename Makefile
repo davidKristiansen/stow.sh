@@ -40,6 +40,8 @@ release:
 		echo >&2 "ERROR: working tree is not clean. Commit or stash changes first."; \
 		exit 1; \
 	fi
+	@# Ensure hooks are installed
+	@$(MAKE) --no-print-directory hooks
 	@# Run tests first
 	@echo "Running tests..."
 	@bats --verbose-run test/ || { echo >&2 "ERROR: tests failed. Fix before releasing."; exit 1; }
