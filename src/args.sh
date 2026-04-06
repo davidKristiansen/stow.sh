@@ -107,6 +107,10 @@ Filtering:
   (one per line) to permanently exclude files. The .stowignore file
   itself is always excluded. Lines starting with # are comments.
 
+  Files can be annotated with ## conditions (e.g. file##os.linux).
+  Custom conditions can be added as shell scripts in
+  \$XDG_CONFIG_HOME/stow.sh/conditions/ (see README for details).
+
 Folding:
   --no-folding              Symlink each file individually instead of
                             symlinking entire directories when possible

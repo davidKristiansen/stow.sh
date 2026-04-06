@@ -4,6 +4,19 @@
 
 Stow manages dotfiles by creating symlinks from a source directory (your dotfiles repo) into a target directory (your home). stow.sh does the same thing, plus conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Conditional Dotfiles](#conditional-dotfiles)
+- [Custom Conditions](#custom-conditions)
+- [Directory Folding](#directory-folding)
+- [Development](#development)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
 ## Features
 
 Everything GNU Stow does, plus:
@@ -121,6 +134,10 @@ Filtering:
   A .stowignore file in a package directory can list glob patterns
   (one per line) to permanently exclude files. The .stowignore file
   itself is always excluded. Lines starting with # are comments.
+
+  Files can be annotated with ## conditions (e.g. file##os.linux).
+  Custom conditions can be added as shell scripts in
+  $XDG_CONFIG_HOME/stow.sh/conditions/ (see README for details).
 
 Folding:
   --no-folding              Symlink each file individually instead of
@@ -240,18 +257,50 @@ When a directory segment has a condition, it propagates to all files inside:
 
 If shell is not zsh, both `.zshrc` and `.zprofile` are skipped. If shell is zsh, the whole directory is symlinked: `~/.config/zsh -> dotfiles/.config/zsh##shell.zsh`.
 
-### Custom conditions
+## Custom Conditions
 
-Create shell scripts in `$XDG_CONFIG_HOME/stow.sh/conditions/`:
+stow.sh conditions are pluggable. Each condition is a shell function named `stow_sh::condition::<type>`. The built-in ones (`os`, `shell`, `exe`, etc.) are loaded from `conditions.d/`, but you can add your own.
+
+Place scripts in `$XDG_CONFIG_HOME/stow.sh/conditions/` (typically `~/.config/stow.sh/conditions/`). Each `.sh` file is sourced at startup and can define one or more condition functions:
 
 ```bash
-# ~/.config/stow.sh/conditions/work.sh
+# ~/.config/stow.sh/conditions/custom.sh
+
 stow_sh::condition::work() {
     [[ "$(hostname)" == *corp* ]]
 }
+
+stow_sh::condition::laptop() {
+    [[ -d /sys/class/power_supply/BAT0 ]]
+}
+
+stow_sh::condition::wayland() {
+    [[ -n "${WAYLAND_DISPLAY:-}" ]]
+}
 ```
 
-Now you can use `file##work` or `file##!work` in your dotfiles.
+Then use them like any built-in condition:
+
+```
+.config/vpn##work/              # VPN config only on work machines
+.config/tlp##laptop/            # Power management only on laptops
+.config/sway##wayland/          # Sway config only under Wayland
+monitors.xml##!laptop            # Static monitor layout on desktops only
+```
+
+Conditions support arguments via dot notation. The part after the dot is passed as `$1` to the function, which is how `os.arch`, `shell.zsh`, and `exe.nvim` work. User conditions can use the same pattern:
+
+```bash
+stow_sh::condition::host() {
+    [[ "$(hostname)" == "$1" ]]
+}
+```
+
+```
+.config/special##host.myserver/  # Only on the host named "myserver"
+```
+
+User conditions override built-ins if they define the same function name.
 
 ## Directory Folding
 
