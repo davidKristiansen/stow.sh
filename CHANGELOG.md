@@ -1,3 +1,9 @@
+## v0.10.1 (2026-04-06)
+
+### Refactor
+
+- **stow**: demote already-stowed report to debug-only
+
 ## v0.10.0 (2026-04-06)
 
 ### Feat
