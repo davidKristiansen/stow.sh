@@ -305,3 +305,8 @@ test/              bats test suite (255 tests)
 ## License
 
 MIT
+
+## Acknowledgements
+
+- [GNU Stow](https://www.gnu.org/software/stow/) -- the original symlink farm manager that inspired this project's core design and CLI interface.
+- [yadm](https://yadm.io/) -- its conditional file handling (`##` annotations) was the direct inspiration for stow.sh's conditional dotfiles system.

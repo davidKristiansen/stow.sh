@@ -3,7 +3,7 @@
 ## Project Overview
 
 **stow.sh** is a pure-Bash reimplementation of GNU Stow — a symlink farm manager for dotfiles.
-Version: `0.9.1` | License: MIT | Author: David Kristiansen
+Version: `0.10.0` | License: MIT | Author: David Kristiansen
 
 ### Key features beyond GNU Stow
 
