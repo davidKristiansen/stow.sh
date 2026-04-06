@@ -188,3 +188,191 @@ setup() {
   run stow_sh::git_should_ignore "$relpath" ".git/hooks/pre-commit"
   [ "$status" -eq 0 ]
 }
+
+# ============================================================
+# .stowignore tests
+# ============================================================
+
+@test "stow_sh::match_stowignore always excludes .stowignore itself" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=()
+
+  run stow_sh::match_stowignore ".stowignore"
+  [ "$status" -eq 0 ]
+}
+
+@test "stow_sh::match_stowignore excludes nested .stowignore" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=()
+
+  run stow_sh::match_stowignore "subdir/.stowignore"
+  [ "$status" -eq 0 ]
+}
+
+@test "stow_sh::match_stowignore matches loaded glob patterns" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("*.bak" "LICENSE")
+
+  run stow_sh::match_stowignore "file.bak"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore "LICENSE"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore ".bashrc"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::load_stowignore loads patterns from file" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  stow_sh::reset_stowignore
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  cat > "$tmpdir/.stowignore" <<'EOF'
+# Ignore project management files
+*.baseline
+.pre-commit-config.yaml
+
+# Ignore build artifacts
+Makefile
+EOF
+
+  stow_sh::load_stowignore "$tmpdir/.stowignore"
+
+  run stow_sh::match_stowignore "secrets.baseline"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore ".pre-commit-config.yaml"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore "Makefile"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore ".bashrc"
+  [ "$status" -eq 1 ]
+
+  rm -rf "$tmpdir"
+}
+
+@test "stow_sh::load_stowignore skips blank lines and comments" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  stow_sh::reset_stowignore
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  cat > "$tmpdir/.stowignore" <<'EOF'
+
+# comment line
+   # indented comment
+
+*.log
+
+EOF
+
+  stow_sh::load_stowignore "$tmpdir/.stowignore"
+
+  # Should only have one pattern: *.log
+  [ "${#_stow_sh_stowignore_glob[@]}" -eq 1 ]
+  [ "${_stow_sh_stowignore_glob[0]}" = "*.log" ]
+
+  rm -rf "$tmpdir"
+}
+
+@test "stow_sh::load_stowignore is a no-op when file does not exist" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  stow_sh::reset_stowignore
+
+  run stow_sh::load_stowignore "/nonexistent/.stowignore"
+  [ "$status" -eq 0 ]
+  [ "${#_stow_sh_stowignore_glob[@]}" -eq 0 ]
+}
+
+@test "stow_sh::reset_stowignore clears patterns" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("*.bak" "LICENSE")
+
+  stow_sh::reset_stowignore
+  [ "${#_stow_sh_stowignore_glob[@]}" -eq 0 ]
+}
+
+@test "stow_sh::filter_candidates excludes .stowignore patterns" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("*.baseline" ".pre-commit-config.yaml")
+  _stow_sh_ignore=()
+  _stow_sh_ignore_glob=()
+  _stow_sh_git_mode=false
+
+  local input=$'.bashrc\nsecrets.baseline\n.pre-commit-config.yaml\n.config/nvim/init.lua'
+  local -a result
+  mapfile -t result < <(stow_sh::filter_candidates <<< "$input")
+
+  [ "${#result[@]}" -eq 2 ]
+  [ "${result[0]}" = ".bashrc" ]
+  [ "${result[1]}" = ".config/nvim/init.lua" ]
+}
+
+@test "stow_sh::filter_candidates always excludes .stowignore file" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=()
+  _stow_sh_ignore=()
+  _stow_sh_ignore_glob=()
+  _stow_sh_git_mode=false
+
+  local input=$'.bashrc\n.stowignore'
+  local -a result
+  mapfile -t result < <(stow_sh::filter_candidates <<< "$input")
+
+  [ "${#result[@]}" -eq 1 ]
+  [ "${result[0]}" = ".bashrc" ]
+}
+
+@test "stow_sh::match_stowignore matches directory pattern against descendant paths" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=(".github")
+
+  # Direct match
+  run stow_sh::match_stowignore ".github"
+  [ "$status" -eq 0 ]
+
+  # Descendant files — ancestor segment matches
+  run stow_sh::match_stowignore ".github/CODEOWNERS"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore ".github/workflows/ci.yml"
+  [ "$status" -eq 0 ]
+
+  # Non-matching paths
+  run stow_sh::match_stowignore ".config/github"
+  [ "$status" -eq 1 ]
+
+  run stow_sh::match_stowignore ".bashrc"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::filter_candidates excludes directory pattern and all children" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=(".github" "bootstrap")
+  _stow_sh_ignore=()
+  _stow_sh_ignore_glob=()
+  _stow_sh_git_mode=false
+
+  local input=$'.bashrc\n.github/CODEOWNERS\n.github/workflows/ci.yml\nbootstrap/install.sh\n.config/nvim/init.lua'
+  local -a result
+  mapfile -t result < <(stow_sh::filter_candidates <<< "$input")
+
+  [ "${#result[@]}" -eq 2 ]
+  [ "${result[0]}" = ".bashrc" ]
+  [ "${result[1]}" = ".config/nvim/init.lua" ]
+}

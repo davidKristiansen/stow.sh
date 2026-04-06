@@ -34,17 +34,28 @@ stow_sh::load_condition_plugins
 #
 # Outputs resolved targets (one per line), relative to the package root.
 #
-# Usage: stow_sh::resolve_package barrier_flags_var pkg_dir
+# Usage: stow_sh::resolve_package [--no-fold] barrier_flags_var pkg_dir
+#   --no-fold — skip the fold phase (used for unstow)
 #   barrier_flags_var — name of an array variable holding --barrier=PATH flags
 #   pkg_dir — absolute path to the package directory
 # Output: one resolved target per line
 stow_sh::resolve_package() {
+    local skip_fold=false
+    if [[ "${1:-}" == "--no-fold" ]]; then
+        skip_fold=true
+        shift
+    fi
+
     local barrier_flags_var="$1"
     local pkg_dir
     pkg_dir="$(readlink -f "$2")"
 
     # Copy barrier flags from the named variable
     local -n _barrier_flags="$barrier_flags_var"
+
+    # Load .stowignore for this package (reset from previous package)
+    stow_sh::reset_stowignore
+    stow_sh::load_stowignore "$pkg_dir/.stowignore"
 
     # Scan
     stow_sh::log debug 2 "Scanning package: '$pkg_dir'"
@@ -91,9 +102,9 @@ stow_sh::resolve_package() {
         done
     fi
 
-    # Fold (or pass through if folding disabled)
+    # Fold (or pass through if folding disabled or skipped for unstow)
     local -a resolved
-    if ! stow_sh::is_folding_disabled; then
+    if [[ "$skip_fold" == false ]] && ! stow_sh::is_folding_disabled; then
         stow_sh::log debug 2 "Resolving fold targets..."
         mapfile -t resolved < <(stow_sh::fold_targets \
             "${_barrier_flags[@]}" "$pkg_dir" \
@@ -161,24 +172,39 @@ main() {
         [[ -z "$pkg" ]] && continue
         local pkg_dir
         pkg_dir="$(readlink -f "$source_dir/$pkg")"
-        stow_sh::log info "Restowing package: $pkg"
+        stow_sh::log debug 1 "Restowing package: $pkg"
 
-        local -a resolved
-        if resolve_output="$(stow_sh::resolve_package barrier_flags "$pkg_dir")"; then
+        # Unstow phase: skip folding (let __remove_link handle filesystem state)
+        local -a unstow_resolved
+        if resolve_output="$(stow_sh::resolve_package --no-fold barrier_flags "$pkg_dir")"; then
             if [[ -n "$resolve_output" ]]; then
-                mapfile -t resolved <<< "$resolve_output"
+                mapfile -t unstow_resolved <<< "$resolve_output"
             else
-                resolved=()
+                unstow_resolved=()
             fi
         else
             had_error=true
             continue
         fi
 
-        stow_sh::log debug 1 "Resolved ${#resolved[@]} targets for restow of '$pkg'"
+        # Stow phase: use fold logic for optimal symlinks
+        local -a stow_resolved
+        if resolve_output="$(stow_sh::resolve_package barrier_flags "$pkg_dir")"; then
+            if [[ -n "$resolve_output" ]]; then
+                mapfile -t stow_resolved <<< "$resolve_output"
+            else
+                stow_resolved=()
+            fi
+        else
+            had_error=true
+            continue
+        fi
 
-        stow_sh::unstow_package "$pkg_dir" "$target_dir" "${resolved[@]}" || had_error=true
-        stow_sh::stow_package "$pkg_dir" "$target_dir" "${resolved[@]}" || had_error=true
+        stow_sh::log debug 1 "Resolved ${#unstow_resolved[@]} unstow + ${#stow_resolved[@]} stow targets for restow of '$pkg'"
+        stow_sh::report "+" "restow $pkg (${#stow_resolved[@]} targets)"
+
+        stow_sh::unstow_package "$pkg_dir" "$target_dir" "${unstow_resolved[@]}" || had_error=true
+        stow_sh::stow_package "$pkg_dir" "$target_dir" "${stow_resolved[@]}" || had_error=true
     done
 
     # --- Unstow ---
@@ -186,10 +212,10 @@ main() {
         [[ -z "$pkg" ]] && continue
         local pkg_dir
         pkg_dir="$(readlink -f "$source_dir/$pkg")"
-        stow_sh::log info "Unstowing package: $pkg"
+        stow_sh::log debug 1 "Unstowing package: $pkg"
 
         local -a resolved
-        if resolve_output="$(stow_sh::resolve_package barrier_flags "$pkg_dir")"; then
+        if resolve_output="$(stow_sh::resolve_package --no-fold barrier_flags "$pkg_dir")"; then
             if [[ -n "$resolve_output" ]]; then
                 mapfile -t resolved <<< "$resolve_output"
             else
@@ -201,6 +227,7 @@ main() {
         fi
 
         stow_sh::log debug 1 "Resolved ${#resolved[@]} targets for unstow of '$pkg'"
+        stow_sh::report "-" "unstow $pkg (${#resolved[@]} targets)"
 
         stow_sh::unstow_package "$pkg_dir" "$target_dir" "${resolved[@]}" || had_error=true
     done
@@ -210,7 +237,7 @@ main() {
         [[ -z "$pkg" ]] && continue
         local pkg_dir
         pkg_dir="$(readlink -f "$source_dir/$pkg")"
-        stow_sh::log info "Stowing package: $pkg"
+        stow_sh::log debug 1 "Stowing package: $pkg"
 
         local -a resolved
         if resolve_output="$(stow_sh::resolve_package barrier_flags "$pkg_dir")"; then
@@ -225,6 +252,7 @@ main() {
         fi
 
         stow_sh::log debug 1 "Resolved ${#resolved[@]} targets for stow of '$pkg'"
+        stow_sh::report "+" "stow $pkg (${#resolved[@]} targets)"
 
         stow_sh::stow_package "$pkg_dir" "$target_dir" "${resolved[@]}" || had_error=true
     done

@@ -103,6 +103,10 @@ Filtering:
   -I, --ignore-glob GLOB ...
                             Skip files matching glob pattern(s)
 
+  A .stowignore file in a package directory can list glob patterns
+  (one per line) to permanently exclude files. The .stowignore file
+  itself is always excluded. Lines starting with # are comments.
+
 Folding:
   --no-folding              Symlink each file individually instead of
                             symlinking entire directories when possible
@@ -166,6 +170,9 @@ stow_sh::find_gitignore_upwards() {
 stow_sh::parse_args() {
     stow_sh::log debug 3 "parse_args() invoked with args: $*"
     local explicit_git_flag=false
+    local explicit_stow=false
+    local explicit_unstow=false
+    local explicit_restow=false
 
     while [[ $# -gt 0 ]]; do
         # Expand combined short flags: -vvn → -v -v -n
@@ -252,6 +259,7 @@ stow_sh::parse_args() {
                 shift
                 ;;
             -S | --stow)
+                explicit_stow=true
                 shift
                 while [[ $# -gt 0 && "$1" != -* ]]; do
                     _stow_sh_stow_packages+=("$1")
@@ -260,6 +268,7 @@ stow_sh::parse_args() {
             done
                 ;;
             -D | --delete)
+                explicit_unstow=true
                 shift
                 while [[ $# -gt 0 && "$1" != -* ]]; do
                     _stow_sh_unstow_targets+=("$1")
@@ -268,6 +277,7 @@ stow_sh::parse_args() {
             done
                 ;;
             -R | --restow)
+                explicit_restow=true
                 shift
                 while [[ $# -gt 0 && "$1" != -* ]]; do
                     _stow_sh_restow_targets+=("$1")
@@ -354,6 +364,20 @@ stow_sh::parse_args() {
     elif [[ $# -eq 1 ]]; then
         _stow_sh_stow_packages+=("$1")
         stow_sh::log debug 2 "Added positional stow target: $1"
+    fi
+
+    # Default to "." when -S/-D/-R was used without package arguments
+    if [[ "$explicit_stow" == true && ${#_stow_sh_stow_packages[@]} -eq 0 ]]; then
+        _stow_sh_stow_packages+=(".")
+        stow_sh::log debug 1 "-S without packages — defaulting to self-stow (.)"
+    fi
+    if [[ "$explicit_unstow" == true && ${#_stow_sh_unstow_targets[@]} -eq 0 ]]; then
+        _stow_sh_unstow_targets+=(".")
+        stow_sh::log debug 1 "-D without packages — defaulting to self-unstow (.)"
+    fi
+    if [[ "$explicit_restow" == true && ${#_stow_sh_restow_targets[@]} -eq 0 ]]; then
+        _stow_sh_restow_targets+=(".")
+        stow_sh::log debug 1 "-R without packages — defaulting to self-restow (.)"
     fi
 
     # Auto-discover packages if none were specified via -S/-D/-R

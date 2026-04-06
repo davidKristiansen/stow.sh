@@ -3,13 +3,15 @@
 ## Project Overview
 
 **stow.sh** is a pure-Bash reimplementation of GNU Stow — a symlink farm manager for dotfiles.
-Version: `0.9.0` | License: MIT | Author: David Kristiansen
+Version: `0.9.1` | License: MIT | Author: David Kristiansen
 
 ### Key features beyond GNU Stow
 
 - **Conditional dotfiles** via `##` annotations (e.g. `file##os.linux,shell.bash`)
 - **Git-aware filtering** using `.gitignore` rules (including negation patterns)
-- **Triple-layer filtering**: git-aware, regex (`-i`), glob (`-I`)
+- **`.stowignore` file**: per-package glob patterns to permanently exclude files and directories (e.g. `Makefile`, `*.baseline`, `.github`)
+- **Quad-layer filtering**: stowignore, git-aware, regex (`-i`), glob (`-I`)
+- **User-facing reports**: clean stdout output showing what was stowed/unstowed (`+`/`-`/`~`/`?` symbols)
 - **Directory folding**: symlink whole directories when possible
 - **XDG-aware folding**: fold barriers derived from `XDG_*` environment variables
 - **Auto-unfold**: when a fold point conflicts with an existing real directory at the target, automatically falls back to creating individual file symlinks inside it
@@ -23,14 +25,14 @@ stow.sh/
 ├── src/
 │   ├── main.sh              # Orchestrator — pipeline: parse → scan → filter → fold → stow/unstow
 │   ├── args.sh              # CLI argument parsing, path setup, getter functions
-│   ├── log.sh               # Logging framework (color, debug levels, stderr output)
-│   ├── filter.sh            # Path filtering engine (git / regex / glob)
+│   ├── log.sh               # Logging framework (color, debug levels, stderr output, user reports)
+│   ├── filter.sh            # Path filtering engine (stowignore / git / regex / glob)
 │   ├── scan.sh              # Package directory scanner (find -type f)
 │   ├── fold.sh              # Directory folding + target resolution (annotation + barrier + exclusion aware)
 │   ├── stow.sh              # Stow/unstow operations (symlink creation/removal, conflict handling, auto-unfold)
 │   ├── xdg.sh               # XDG fold barrier detection from environment variables
 │   ├── conditions.sh        # Annotation parsing, condition evaluation, plugin loader
-│   └── version.sh           # Version constant: STOW_SH_VERSION="0.9.0"
+│   └── version.sh           # Version constant: STOW_SH_VERSION="0.9.1"
 ├── conditions.d/             # Built-in condition predicates (loaded as plugins)
 │   ├── docker.sh            #   docker — /.dockerenv check
 │   ├── exe.sh               #   exe.<name> — executable in $PATH
@@ -80,11 +82,14 @@ bin/stow.sh  →  sets STOW_ROOT  →  exec src/main.sh "$@"
                                                                │
                               for each package: resolve_package()
                                                                │
+                                                     load_stowignore()
+                                                     (.stowignore glob patterns)
+                                                               │
                                                         scan_package()
                                                         (find -type f)
                                                                │
                                                      filter_candidates()
-                                                     (git + regex + glob)
+                                                     (stowignore + git + regex + glob)
                                                                │
                                                      fold_targets()
                                                      (resolve: fold points + individual files)
@@ -287,14 +292,14 @@ chore: bump version to 0.9.0
 - **Framework**: [bats-core](https://github.com/bats-core/bats-core)
 - **Run tests**: `make test` or `bats --verbose-run test/`
 - **Test location**: `test/*.bats`, fixtures in `test/fixtures/`
-- **Current coverage** (222 tests, all passing):
-  - `args.bats` — CLI argument parsing, short-flag expansion, path setup, getters (33)
+- **Current coverage** (255 tests, all passing):
+  - `args.bats` — CLI argument parsing, short-flag expansion, path setup, getters, `-S`/`-D`/`-R` defaulting to `.`, `--dry-run` alias (38)
   - `conditions.bats` — annotation parsing, path sanitization, condition evaluation, plugins, directory propagation (39)
-  - `filter.bats` — git-aware, regex, glob filtering (14)
-  - `fold.bats` — directory folding with annotation taint, XDG barriers, filesystem completeness, exclusion awareness (31)
-  - `integration.bats` — end-to-end via `bin/stow.sh`: stow, unstow, restow, folding, XDG barriers, annotations, force, adopt, dry-run, ignore patterns, error cases, idempotency, self-stow, directory condition propagation, auto-unfold (45)
+  - `filter.bats` — git-aware, regex, glob filtering, stowignore directory matching (25)
+  - `fold.bats` — directory folding with annotation taint, XDG barriers, filesystem completeness, exclusion awareness (33)
+  - `integration.bats` — end-to-end via `bin/stow.sh`: stow, unstow, restow, folding, XDG barriers, annotations, force, adopt, dry-run, ignore patterns, error cases, idempotency, self-stow, directory condition propagation, auto-unfold, `.stowignore`, report output, `-S`/`-D`/`-R` defaults, ancestor fold point detection (59)
   - `scan.bats` — recursive scanning, dotfiles, annotated filenames, spaces (8)
-  - `stow.bats` — stow/unstow operations: symlinks, annotations, conflicts, force, adopt, dry-run, auto-unfold (40)
+  - `stow.bats` — stow/unstow operations: symlinks, annotations, conflicts, force, adopt, dry-run, auto-unfold, ancestor fold point detection (43)
   - `xdg.bats` — XDG barrier computation from environment variables (10)
 
 ### When Making Changes

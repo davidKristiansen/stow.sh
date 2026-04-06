@@ -869,3 +869,191 @@ teardown() {
     [ "$(cat "$TARGET_DIR/.gnupg/trustdb.gpg")" = "secret" ]
     [ -f "$TARGET_DIR/.gnupg/private-keys-v1.d/mykey.key" ]
 }
+
+# ============================================================
+# .stowignore support
+# ============================================================
+
+@test "integration: .stowignore excludes matching files from stow" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+    echo "secret" > "$pkg/.secrets.baseline"
+    echo "hooks" > "$pkg/.pre-commit-config.yaml"
+    cat > "$pkg/.stowignore" <<'EOF'
+*.baseline
+.pre-commit-config.yaml
+EOF
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 0 ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+    [ ! -e "$TARGET_DIR/.secrets.baseline" ]
+    [ ! -e "$TARGET_DIR/.pre-commit-config.yaml" ]
+    [ ! -e "$TARGET_DIR/.stowignore" ]
+}
+
+@test "integration: .stowignore file itself is never stowed" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+    echo "" > "$pkg/.stowignore"
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 0 ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+    [ ! -e "$TARGET_DIR/.stowignore" ]
+}
+
+@test "integration: .stowignore works with directory folding" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg/.config/nvim"
+    echo "init" > "$pkg/.config/nvim/init.lua"
+    echo "readme" > "$pkg/README.md"
+    cat > "$pkg/.stowignore" <<'EOF'
+README.md
+EOF
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 0 ]
+    [ ! -e "$TARGET_DIR/README.md" ]
+    # nvim should still be stowed (potentially folded)
+    [ -e "$TARGET_DIR/.config/nvim/init.lua" ]
+}
+
+@test "integration: unstow with .stowignore only removes non-ignored files" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+    echo "secret" > "$pkg/.secrets.baseline"
+    cat > "$pkg/.stowignore" <<'EOF'
+*.baseline
+EOF
+
+    # Stow (only .bashrc should be symlinked)
+    "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ -L "$TARGET_DIR/.bashrc" ]
+    [ ! -e "$TARGET_DIR/.secrets.baseline" ]
+
+    # Unstow
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -D pkg
+    [ "$status" -eq 0 ]
+    [ ! -L "$TARGET_DIR/.bashrc" ]
+}
+
+# ============================================================
+# User-facing report output
+# ============================================================
+
+@test "integration: stow produces visible report output on stdout" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"stow pkg"* ]]
+    [[ "$output" == *"+"* ]]
+    [[ "$output" == *".bashrc"* ]]
+}
+
+@test "integration: unstow produces visible report output on stdout" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+
+    "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -D pkg
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"unstow pkg"* ]]
+    [[ "$output" == *"-"* ]]
+    [[ "$output" == *".bashrc"* ]]
+}
+
+@test "integration: unstow of already-unstowed package succeeds silently" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+
+    # Never stowed, so unstow should succeed without per-file output
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -D pkg
+    [ "$status" -eq 0 ]
+    # Should not contain link/unlink actions (only the package header)
+    [[ "$output" != *".bashrc ->"* ]]
+}
+
+@test "integration: dry-run shows WOULD messages on stdout" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "content" > "$pkg/.bashrc"
+
+    run "$STOW_SH" -G --no-xdg -n -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"WOULD"* ]]
+    [ ! -L "$TARGET_DIR/.bashrc" ]
+}
+
+# ============================================================
+# -S/-D without packages defaults to self-stow
+# ============================================================
+
+@test "integration: -S without packages defaults to self-stow" {
+    # Source dir has files directly (no subdirectories = self-stow)
+    echo "content" > "$SOURCE_DIR/.bashrc"
+
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S
+    [ "$status" -eq 0 ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+    [ "$(readlink -f "$TARGET_DIR/.bashrc")" = "$(readlink -f "$SOURCE_DIR/.bashrc")" ]
+}
+
+@test "integration: -D without packages defaults to self-unstow" {
+    echo "content" > "$SOURCE_DIR/.bashrc"
+
+    # Stow first
+    "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S
+    [ -L "$TARGET_DIR/.bashrc" ]
+
+    # Unstow with bare -D
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -D
+    [ "$status" -eq 0 ]
+    [ ! -e "$TARGET_DIR/.bashrc" ]
+}
+
+@test "integration: -R without packages defaults to self-restow" {
+    echo "content" > "$SOURCE_DIR/.bashrc"
+
+    # Stow first
+    "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S
+    [ -L "$TARGET_DIR/.bashrc" ]
+
+    # Restow with bare -R
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -R
+    [ "$status" -eq 0 ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+    [ "$(readlink -f "$TARGET_DIR/.bashrc")" = "$(readlink -f "$SOURCE_DIR/.bashrc")" ]
+}
+
+# ============================================================
+# Ancestor fold point detection during unstow
+# ============================================================
+
+@test "integration: unstow detects ancestor fold point with nested structure" {
+    # Stow creates a fold point at .config (directory symlink),
+    # then unstow with --no-fold resolves individual files and must
+    # detect the ancestor fold point and remove it
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg/.config/nvim/lua"
+    echo "init" > "$pkg/.config/nvim/init.lua"
+    echo "plugins" > "$pkg/.config/nvim/lua/plugins.lua"
+
+    # Stow with folding — creates .config -> pkg/.config
+    "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ -L "$TARGET_DIR/.config" ]
+
+    # Unstow — should detect the ancestor symlink and remove it
+    run "$STOW_SH" -G --no-xdg -d "$SOURCE_DIR" -t "$TARGET_DIR" -D pkg
+    [ "$status" -eq 0 ]
+    [ ! -e "$TARGET_DIR/.config" ]
+}

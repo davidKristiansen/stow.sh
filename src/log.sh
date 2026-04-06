@@ -7,6 +7,8 @@
 # (e.g. resolved target lists piped between functions). Debug messages
 # are gated by a numeric verbosity level set at startup.
 #
+# User-facing operation reports go to stdout via stow_sh::report.
+#
 # No dependencies.
 
 # Module state — color and verbosity are configured once via log_setup.
@@ -89,5 +91,33 @@ stow_sh::log() {
         printf "%b %s\n" "${color}${prefix}${_stow_sh__c_reset}" "$message" >&2
     else
         printf "%s %s\n" "$prefix" "$message" >&2
+    fi
+}
+
+# Print a user-facing operation report to stdout.
+#
+# These are the "what did stow.sh do?" messages the user sees by default.
+# They go to stdout (not stderr) and have no level prefix — just a clean
+# symbol and the message.
+#
+# Symbols:  + (stow/link)  - (unstow/unlink)  ~ (skip/already)  ? (dry-run)
+#
+# Usage: stow_sh::report <symbol> <message...>
+stow_sh::report() {
+    local symbol="$1"
+    shift
+    local message="$*"
+    local color=""
+    if [[ "$_stow_sh_use_color" == true ]]; then
+        case "$symbol" in
+            +) color="$_stow_sh__c_info" ;;   # green
+            -) color="$_stow_sh__c_error" ;;   # red
+            '~') color="$_stow_sh__c_debug" ;; # cyan
+            '?') color="$_stow_sh__c_warn" ;;  # yellow
+            *) ;;
+        esac
+        printf "%b%s%b %s\n" "$color" "$symbol" "$_stow_sh__c_reset" "$message"
+    else
+        printf "%s %s\n" "$symbol" "$message"
     fi
 }

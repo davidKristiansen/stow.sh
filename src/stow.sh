@@ -15,16 +15,13 @@
 # Depends on: log.sh, args.sh (is_dry_run, is_force, is_adopt),
 #             conditions.sh (check_conditions, sanitize_path, has_annotation)
 
-# Log "Already stowed" at info level in dry-run mode so -n shows the
-# full picture, and at debug level 1 otherwise to avoid noise.
+# Log "Already stowed" at debug level.
+# The user-facing report is handled by stow_sh::report.
 #
 # Usage: stow_sh::__log_already_stowed "description"
 stow_sh::__log_already_stowed() {
-    if stow_sh::is_dry_run; then
-        stow_sh::log info "Already stowed: $1"
-    else
-        stow_sh::log debug 1 "Already stowed: $1"
-    fi
+    stow_sh::log debug 1 "Already stowed: $1"
+    stow_sh::report "~" "already stowed $1"
 }
 
 # Stow resolved targets from a package into the target directory.
@@ -52,7 +49,8 @@ stow_sh::stow_package() {
         # Evaluate ## conditions — skip target if conditions fail
         if stow_sh::has_annotation "$target"; then
             if ! stow_sh::check_conditions "$target"; then
-                stow_sh::log info "Skipping '$target' — conditions not met"
+                stow_sh::log debug 1 "Skipping '$target' — conditions not met"
+                stow_sh::report "~" "skip $target (conditions not met)"
                 continue
             fi
         fi
@@ -87,6 +85,10 @@ stow_sh::unstow_package() {
     local -a resolved_targets=("$@")
 
     local had_error=false
+
+    # Reset ancestor tracking for this package (global so __remove_link can access it).
+    # Prevents duplicate reports when multiple files share the same ancestor fold point.
+    declare -gA _stow_sh_handled_ancestors=()
 
     stow_sh::log debug 1 "Unstowing ${#resolved_targets[@]} targets from '$pkg_dir' out of '$target_dir'"
 
@@ -173,11 +175,12 @@ stow_sh::__create_link() {
         # Points elsewhere — conflict
         if stow_sh::is_force; then
             if stow_sh::is_dry_run; then
-                stow_sh::log info "WOULD remove conflicting symlink: '$link_path' -> '$(readlink "$link_path")'"
-                stow_sh::log info "WOULD link: '$link_path' -> '$source_path'"
+                stow_sh::log debug 1 "WOULD remove conflicting symlink: '$link_path' -> '$(readlink "$link_path")'"
+                stow_sh::report "?" "WOULD force $link_path"
                 return 0
             fi
-            stow_sh::log info "Removing conflicting symlink: '$link_path'"
+            stow_sh::log debug 1 "Removing conflicting symlink: '$link_path'"
+            stow_sh::report "+" "force $link_path (was -> $(readlink "$link_path"))"
             rm "$link_path"
         else
             stow_sh::log error "Conflict: '$link_path' is a symlink to '$(readlink "$link_path")' (use --force to override)"
@@ -212,11 +215,12 @@ stow_sh::__create_link() {
             return 0
         elif stow_sh::is_adopt; then
             if stow_sh::is_dry_run; then
-                stow_sh::log info "WOULD adopt: '$link_path' -> '$source_path'"
-                stow_sh::log info "WOULD link: '$link_path' -> '$source_path'"
+                stow_sh::log debug 1 "WOULD adopt: '$link_path' -> '$source_path'"
+                stow_sh::report "?" "WOULD adopt $link_path"
                 return 0
             fi
-            stow_sh::log info "Adopting: '$link_path' -> '$source_path'"
+            stow_sh::log debug 1 "Adopting: '$link_path' -> '$source_path'"
+            stow_sh::report "+" "adopt $link_path -> $source_path"
             # Move the existing file into the package, then symlink
             local source_dir
             source_dir="$(dirname "$source_path")"
@@ -224,11 +228,12 @@ stow_sh::__create_link() {
             mv "$link_path" "$source_path"
         elif stow_sh::is_force; then
             if stow_sh::is_dry_run; then
-                stow_sh::log info "WOULD remove conflicting path: '$link_path'"
-                stow_sh::log info "WOULD link: '$link_path' -> '$source_path'"
+                stow_sh::log debug 1 "WOULD remove conflicting path: '$link_path'"
+                stow_sh::report "?" "WOULD force $link_path"
                 return 0
             fi
-            stow_sh::log info "Removing conflicting path: '$link_path'"
+            stow_sh::log debug 1 "Removing conflicting path: '$link_path'"
+            stow_sh::report "+" "force $link_path"
             rm -rf "$link_path"
         else
             stow_sh::log error "Conflict: '$link_path' already exists (use --adopt or --force)"
@@ -239,7 +244,7 @@ stow_sh::__create_link() {
     # Create parent directories if needed
     if [[ ! -d "$link_dir" ]]; then
         if stow_sh::is_dry_run; then
-            stow_sh::log info "WOULD mkdir -p '$link_dir'"
+            stow_sh::log debug 1 "WOULD mkdir -p '$link_dir'"
         else
             stow_sh::log debug 2 "Creating directory: '$link_dir'"
             mkdir -p "$link_dir"
@@ -252,10 +257,12 @@ stow_sh::__create_link() {
 
     # Create the symlink
     if stow_sh::is_dry_run; then
-        stow_sh::log info "WOULD link: '$link_path' -> '$rel_source'"
+        stow_sh::log debug 1 "WOULD link: '$link_path' -> '$rel_source'"
+        stow_sh::report "?" "WOULD link $link_path -> $rel_source"
     else
-        stow_sh::log info "Linking: '$link_path' -> '$rel_source'"
+        stow_sh::log debug 1 "Linking: '$link_path' -> '$rel_source'"
         ln -s "$rel_source" "$link_path"
+        stow_sh::report "+" "$link_path -> $rel_source"
     fi
     return 0
 }
@@ -275,11 +282,7 @@ stow_sh::__remove_link() {
 
     if [[ ! -L "$link_path" ]]; then
         if [[ ! -e "$link_path" ]]; then
-            if stow_sh::is_dry_run; then
-                stow_sh::log info "Already unstowed (does not exist): '$link_path'"
-            else
-                stow_sh::log debug 1 "Already unstowed (does not exist): '$link_path'"
-            fi
+            stow_sh::log debug 1 "Already unstowed (does not exist): '$link_path'"
             return 0
         fi
         # Auto-unfold inverse: expected source is a directory and the target
@@ -307,6 +310,33 @@ stow_sh::__remove_link() {
             fi
             return 0
         fi
+        # Check if an ancestor directory is a symlink pointing into the
+        # package (i.e. stow created a fold point). If so, remove the
+        # ancestor symlink instead — it covers this file.
+        local _canonical_source
+        _canonical_source="$(readlink -f "$expected_source")"
+        local _check_dir
+        _check_dir="$(dirname "$link_path")"
+        while [[ "$_check_dir" != "$target_dir" && "$_check_dir" != "/" ]]; do
+            if [[ -L "$_check_dir" ]] || [[ -n "${_stow_sh_handled_ancestors["$_check_dir"]+x}" ]]; then
+                # Already handled this ancestor (e.g. removed, or reported in dry-run)
+                if [[ -n "${_stow_sh_handled_ancestors["$_check_dir"]+x}" ]]; then
+                    stow_sh::log debug 1 "Already handled ancestor fold point: '$_check_dir' (covers '$link_path')"
+                    return 0
+                fi
+                local _ancestor_target
+                _ancestor_target="$(readlink -f "$_check_dir")"
+                # The ancestor covers this file if its resolved target is a
+                # prefix of the file's expected source (both canonical).
+                if [[ "$_canonical_source" == "$_ancestor_target"/* ]]; then
+                    stow_sh::log debug 1 "Removing ancestor fold point: '$_check_dir' (covers '$link_path')"
+                    _stow_sh_handled_ancestors["$_check_dir"]=1
+                    stow_sh::__remove_link "$_check_dir" "$_ancestor_target" "$target_dir"
+                    return $?
+                fi
+            fi
+            _check_dir="$(dirname "$_check_dir")"
+        done
         stow_sh::log error "Cannot unstow: '$link_path' is not a symlink"
         return 1
     fi
@@ -324,10 +354,12 @@ stow_sh::__remove_link() {
 
     # Remove the symlink
     if stow_sh::is_dry_run; then
-        stow_sh::log info "WOULD unlink: '$link_path'"
+        stow_sh::log debug 1 "WOULD unlink: '$link_path'"
+        stow_sh::report "?" "WOULD unlink $link_path"
     else
-        stow_sh::log info "Unlinking: '$link_path'"
+        stow_sh::log debug 1 "Unlinking: '$link_path'"
         rm "$link_path"
+        stow_sh::report "-" "$link_path"
     fi
 
     # Clean up empty parent directories (up to target_dir, exclusive)

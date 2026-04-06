@@ -80,7 +80,7 @@ teardown() {
 
     run stow_sh::stow_package "$PKG_DIR" "$TARGET_DIR" ".bashrc"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Already stowed"* ]] || [[ "$output" == "" ]]
+    [[ "$output" == *"Already stowed"* ]] || [[ "$output" == *"already stowed"* ]] || [[ "$output" == "" ]]
     [ -L "$TARGET_DIR/.bashrc" ]
 }
 
@@ -221,8 +221,7 @@ teardown() {
 
     run stow_sh::stow_package "$PKG_DIR" "$TARGET_DIR" ".bashrc"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"WOULD remove"* ]]
-    [[ "$output" == *"WOULD link"* ]]
+    [[ "$output" == *"WOULD force"* ]]
     # Original symlink should be untouched
     [ "$(readlink "$TARGET_DIR/.bashrc")" = "/some/other/path" ]
 }
@@ -642,4 +641,60 @@ teardown() {
 
     # App data untouched
     [ -f "$TARGET_DIR/.config/opencode/bun.lock" ]
+}
+
+# ============================================================
+# Ancestor fold point detection during unstow
+# ============================================================
+
+@test "unstow_package detects ancestor fold point for individual files" {
+    # Simulate: stow created .config -> pkg/.config (fold point),
+    # but unstow is called with individual file targets (no-fold mode)
+    mkdir -p "$PKG_DIR/.config/nvim"
+    echo "init" > "$PKG_DIR/.config/nvim/init.lua"
+
+    # Create the fold-point directory symlink manually
+    ln -s "$PKG_DIR/.config" "$TARGET_DIR/.config"
+
+    # Unstow with individual file target — should detect ancestor symlink
+    run stow_sh::unstow_package "$PKG_DIR" "$TARGET_DIR" ".config/nvim/init.lua"
+    [ "$status" -eq 0 ]
+
+    # The ancestor fold point should be removed
+    [ ! -e "$TARGET_DIR/.config" ]
+}
+
+@test "unstow_package ancestor detection handles multiple files under same fold point" {
+    # When multiple files share the same ancestor fold point,
+    # the first removes it and the rest see "already unstowed"
+    mkdir -p "$PKG_DIR/.config/nvim/lua"
+    echo "init" > "$PKG_DIR/.config/nvim/init.lua"
+    echo "plugins" > "$PKG_DIR/.config/nvim/lua/plugins.lua"
+
+    # Create the fold-point directory symlink
+    ln -s "$PKG_DIR/.config" "$TARGET_DIR/.config"
+
+    # Unstow with multiple individual file targets
+    run stow_sh::unstow_package "$PKG_DIR" "$TARGET_DIR" \
+        ".config/nvim/init.lua" ".config/nvim/lua/plugins.lua"
+    [ "$status" -eq 0 ]
+
+    # The ancestor fold point should be removed
+    [ ! -e "$TARGET_DIR/.config" ]
+}
+
+@test "stow_package detects ancestor fold point for already-stowed files" {
+    # When a fold point exists and stow tries to create individual links,
+    # it should detect "already stowed via ancestor"
+    mkdir -p "$PKG_DIR/.config/nvim"
+    echo "init" > "$PKG_DIR/.config/nvim/init.lua"
+
+    # Create the fold-point directory symlink (as if stowed previously)
+    ln -s "$PKG_DIR/.config" "$TARGET_DIR/.config"
+
+    # Stow with individual file target — should detect ancestor and skip
+    run stow_sh::stow_package "$PKG_DIR" "$TARGET_DIR" ".config/nvim/init.lua"
+    [ "$status" -eq 0 ]
+    # Ancestor fold point should still be there (not duplicated)
+    [ -L "$TARGET_DIR/.config" ]
 }

@@ -8,7 +8,9 @@ Built for managing `~/.dotfiles` repos with features GNU Stow does not have: con
 
 - **Conditional dotfiles** via `##` annotations (e.g. `file##os.linux,shell.bash`)
 - **Git-aware filtering** using `.gitignore` rules (including negation patterns)
-- **Triple-layer filtering**: git-aware, regex (`-i`), glob (`-I`)
+- **`.stowignore` file**: per-package glob patterns to permanently exclude files and directories
+- **Quad-layer filtering**: stowignore, git-aware, regex (`-i`), glob (`-I`)
+- **User-facing reports**: clean stdout output showing what was stowed/unstowed
 - **Directory folding**: symlink whole directories when possible, minimizing link count
 - **XDG-aware folding**: fold barriers derived from `XDG_*` environment variables
 - **Auto-unfold**: when a fold point conflicts with an existing real directory, falls back to individual symlinks inside it
@@ -85,9 +87,9 @@ stow.sh [OPTIONS] [<directory>]
 Options:
   -d DIR, --dir=DIR             Source directory (default: current directory)
   -t DIR, --target=DIR          Target directory (default: parent of source)
-  -S PATH, --stow PATH          Stow the specified path(s)
-  -D PATH, --delete PATH        Unstow the specified path(s)
-  -R PATH, --restow PATH        Restow the specified path(s)
+  -S PATH, --stow PATH          Stow the specified path(s) (default: . if no args)
+  -D PATH, --delete PATH        Unstow the specified path(s) (default: . if no args)
+  -R PATH, --restow PATH        Restow the specified path(s) (default: . if no args)
   -i REGEX, --ignore=REGEX      Ignore paths matching regex (repeatable)
   -I GLOB, --ignore-glob=GLOB   Ignore paths matching glob (repeatable)
   --defer=PATH                  Defer link creation for specified path (repeatable)
@@ -98,7 +100,7 @@ Options:
   -g, --git                     Enable git-aware filtering
   -G, --no-git                  Disable git-aware filtering
   -f, --force                   Overwrite existing symlinks/files
-  -n, --no                      Dry-run mode (no filesystem changes)
+  -n, --no, --dry-run          Dry-run mode (no filesystem changes)
   -v, --verbose                 Increase verbosity (repeatable: -vvv)
       --verbose=N               Set verbosity level directly
       --color=WHEN              Colorize output: never, always, auto
@@ -116,9 +118,28 @@ Disable with `-G` or `--no-git`. Force enable with `-g`.
 
 Filters are applied in order:
 
-1. **Git-aware** -- excludes files matching `.gitignore` (if enabled)
-2. **Regex** (`-i`) -- excludes files matching any regex pattern
-3. **Glob** (`-I`) -- excludes files matching any glob pattern
+1. **Stowignore** -- excludes files matching `.stowignore` patterns (always active)
+2. **Git-aware** -- excludes files matching `.gitignore` (if enabled)
+3. **Regex** (`-i`) -- excludes files matching any regex pattern
+4. **Glob** (`-I`) -- excludes files matching any glob pattern
+
+### .stowignore
+
+A `.stowignore` file in a package directory lists glob patterns (one per line) to permanently exclude files and directories from stowing. The `.stowignore` file itself is always excluded.
+
+```
+# .stowignore — project management files, not dotfiles
+AGENTS.md
+.github
+.gitignore
+.gitmodules
+*.baseline
+bootstrap
+```
+
+Patterns match against the full relative path, the basename, and every ancestor directory segment. A pattern like `.github` excludes `.github/CODEOWNERS`, `.github/workflows/ci.yml`, etc.
+
+Lines starting with `#` are comments. Blank lines are ignored.
 
 ## Conditional Dotfiles
 
@@ -278,7 +299,7 @@ src/xdg.sh         XDG fold barrier computation
 src/conditions.sh  Annotation parsing + condition evaluation
 conditions.d/      Built-in condition plugins
 hooks/             Git hooks (conventional commits)
-test/              bats test suite (222 tests)
+test/              bats test suite (255 tests)
 ```
 
 ## License

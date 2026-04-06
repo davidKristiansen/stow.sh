@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 David Kristiansen
 
-# filter.sh — triple-layer path filtering engine
+# filter.sh — path filtering engine
 #
-# Filters candidate paths through up to three layers:
-#   1. Git-aware: batch git check-ignore via --stdin (single fork)
-#   2. Regex: user-supplied -i patterns matched against relative paths
-#   3. Glob: user-supplied -I patterns matched against relative paths
+# Filters candidate paths through up to four layers:
+#   1. Stowignore: patterns from .stowignore file(s) in the package
+#   2. Git-aware: batch git check-ignore via --stdin (single fork)
+#   3. Regex: user-supplied -i patterns matched against relative paths
+#   4. Glob: user-supplied -I patterns matched against relative paths
 #
 # Reads paths from stdin (one per line) and writes survivors to stdout.
 #
@@ -25,6 +26,85 @@ if ! declare -p _stow_sh_ignore_glob 2> /dev/null | grep -q 'declare \-a'; then
 fi
 
 : "${_stow_sh_git_mode:=false}"
+
+# Stowignore glob patterns loaded from .stowignore files.
+# The .stowignore file itself is always excluded.
+declare -a _stow_sh_stowignore_glob=()
+
+# Load ignore patterns from a .stowignore file.
+#
+# The file uses glob patterns, one per line. Blank lines and lines
+# starting with # are skipped. The .stowignore file itself is always
+# excluded from stow.
+#
+# Can be called multiple times (e.g. per-package) — patterns accumulate.
+#
+# Usage: stow_sh::load_stowignore /path/to/.stowignore
+stow_sh::load_stowignore() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+
+    stow_sh::log debug 2 "Loading .stowignore from '$file'"
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Strip leading/trailing whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        # Skip blank lines and comments
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        _stow_sh_stowignore_glob+=("$line")
+        stow_sh::log debug 2 "  pattern: $line"
+    done < "$file"
+}
+
+# Reset stowignore patterns (called between packages).
+#
+# Usage: stow_sh::reset_stowignore
+stow_sh::reset_stowignore() {
+    _stow_sh_stowignore_glob=()
+}
+
+# Check if a path matches any .stowignore glob pattern.
+#
+# Also always excludes .stowignore itself.
+#
+# Matching rules:
+#   - Pattern is checked against the full relative path, the basename,
+#     and every ancestor directory segment. This means a pattern like
+#     ".github" excludes ".github/CODEOWNERS" because the ancestor
+#     directory ".github" matches.
+#
+# Usage: stow_sh::match_stowignore path
+# Returns: 0 if matched (should ignore), 1 otherwise
+stow_sh::match_stowignore() {
+    local path="$1"
+    local basename="${path##*/}"
+
+    # Always exclude the .stowignore file itself
+    if [[ "$basename" == ".stowignore" ]]; then
+        return 0
+    fi
+
+    local pattern
+    for pattern in "${_stow_sh_stowignore_glob[@]}"; do
+        # Match against full relative path and basename
+        if [[ "$path" == $pattern || "$basename" == $pattern ]]; then
+            return 0
+        fi
+        # Match against each ancestor directory segment.
+        # For "a/b/c.txt" we check "a/b" then "a".
+        local dir="${path%/*}"
+        while [[ "$dir" != "$path" && -n "$dir" ]]; do
+            local dirname="${dir##*/}"
+            if [[ "$dir" == $pattern || "$dirname" == $pattern ]]; then
+                return 0
+            fi
+            [[ "$dir" == */* ]] || break
+            dir="${dir%/*}"
+        done
+    done
+    return 1
+}
 
 # Check whether a single path should be ignored by git rules.
 #
@@ -174,7 +254,7 @@ stow_sh::match_glob_ignore() {
 }
 
 # Read candidate paths from stdin and emit only those that survive all
-# active filter layers (git, regex, glob).
+# active filter layers (stowignore, git, regex, glob).
 #
 # Git filtering is done in a single batched call rather than per-file
 # to avoid O(n) subprocess forks.
@@ -200,7 +280,15 @@ stow_sh::filter_candidates() {
         keep=true
         stow_sh::log debug 3 "Filtering: $path"
 
-        if [[ "$_stow_sh_git_mode" == true ]]; then
+        # Layer 0: .stowignore patterns (always active if loaded)
+        if [[ $keep == true ]]; then
+            if stow_sh::match_stowignore "$path"; then
+                stow_sh::log debug 3 "  → excluded by .stowignore"
+                keep=false
+            fi
+        fi
+
+        if [[ $keep == true && "$_stow_sh_git_mode" == true ]]; then
             if [[ -n "${git_ignored[$path]+set}" ]]; then
                 stow_sh::log debug 3 "  → excluded by gitignore"
                 keep=false

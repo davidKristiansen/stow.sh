@@ -202,6 +202,41 @@ parse_no_git() {
     [[ "$(stow_sh::get_git_mode)" == "false" ]]
 }
 
+# --- Default-to-. when -S/-D/-R given without packages ---
+
+@test "parse_args: -S without packages defaults to ." {
+    parse_no_git -S
+    local -a pkgs
+    mapfile -t pkgs < <(stow_sh::get_stow_packages)
+    [[ ${#pkgs[@]} -eq 1 ]]
+    [[ "${pkgs[0]}" == "." ]]
+}
+
+@test "parse_args: -D without packages defaults to ." {
+    parse_no_git -D
+    [[ ${#_stow_sh_unstow_targets[@]} -eq 1 ]]
+    [[ "${_stow_sh_unstow_targets[0]}" == "." ]]
+}
+
+@test "parse_args: -R without packages defaults to ." {
+    parse_no_git -R
+    [[ ${#_stow_sh_restow_targets[@]} -eq 1 ]]
+    [[ "${_stow_sh_restow_targets[0]}" == "." ]]
+}
+
+@test "parse_args: -S with packages does NOT default to ." {
+    parse_no_git -S vim
+    local -a pkgs
+    mapfile -t pkgs < <(stow_sh::get_stow_packages)
+    [[ ${#pkgs[@]} -eq 1 ]]
+    [[ "${pkgs[0]}" == "vim" ]]
+}
+
+@test "parse_args: --dry-run sets dry-run mode" {
+    parse_no_git --dry-run -S pkg
+    [[ "$(stow_sh::get_dry_run)" == "true" ]]
+}
+
 # --- setup_paths ---
 
 @test "setup_paths: defaults source to pwd" {
