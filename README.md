@@ -1,5 +1,7 @@
 # stow.sh
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davidKristiansen/stow.sh/blob/main/LICENSE)
+
 [GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management.
 
 Stow manages dotfiles by creating symlinks from a source directory (your dotfiles repo) into a target directory (your home). stow.sh does the same thing, plus conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
@@ -87,10 +89,10 @@ When the source directory has no subdirectories (or none are specified), stow.sh
 
 ```bash
 cd ~/.dotfiles
-stow.sh -t ~
+stow.sh
 ```
 
-This symlinks everything in `~/.dotfiles/` directly into `~/`.
+This symlinks everything in `~/.dotfiles/` directly into `~/` (the parent of the source directory is the default target).
 
 ## Usage
 
