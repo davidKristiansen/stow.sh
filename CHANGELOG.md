@@ -1,3 +1,11 @@
+## v0.10.4 (2026-04-07)
+
+### Fix
+
+- sync .cz.toml version and fix tag format to v-prefix
+
+## v0.10.2 (2026-04-06)
+
 ## v0.10.1 (2026-04-06)
 
 ### Refactor
