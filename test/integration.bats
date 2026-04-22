@@ -639,7 +639,7 @@ teardown() {
 @test "integration: directory ## and file ## both stripped from symlink names" {
     local pkg="$SOURCE_DIR/pkg"
     mkdir -p "$pkg/.config/systemd##!docker/user"
-    echo "[Unit]" > "$pkg/.config/systemd##!docker/user/gammastep@.service##exe.gammastep"
+    echo "[Unit]" > "$pkg/.config/systemd##!docker/user/gammastep@.service##exe.true"
     echo "[Unit]" > "$pkg/.config/systemd##!docker/user/kanshi.service##exe.ls"
     echo "[Unit]" > "$pkg/.config/systemd##!docker/user/swayidle.service##wm.ls"
 
@@ -657,7 +657,7 @@ teardown() {
 
     # The raw annotated names must NOT exist on disk
     [ ! -e "$TARGET_DIR/.config/systemd##!docker" ]
-    [ ! -e "$TARGET_DIR/.config/systemd/user/gammastep@.service##exe.gammastep" ]
+    [ ! -e "$TARGET_DIR/.config/systemd/user/gammastep@.service##exe.true" ]
     [ ! -e "$TARGET_DIR/.config/systemd/user/kanshi.service##exe.ls" ]
 }
 
