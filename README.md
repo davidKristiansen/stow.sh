@@ -1,6 +1,6 @@
 # stow.sh
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davidKristiansen/stow.sh/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davetothek/stow.sh/blob/main/LICENSE)
 
 [GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management.
 
@@ -24,13 +24,13 @@ Everything GNU Stow does, plus:
 ### With mise
 
 ```bash
-mise use -g "github:davidKristiansen/stow.sh"
+mise use -g "github:davetothek/stow.sh"
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/davidKristiansen/stow.sh.git
+git clone https://github.com/davetothek/stow.sh.git
 cd stow.sh
 make install
 ```
@@ -42,7 +42,7 @@ Installs to `~/.local` for regular users, `/usr/local` for root. Override with `
 ```bash
 make uninstall
 # or
-mise rm "github:davidKristiansen/stow.sh"
+mise rm "github:davetothek/stow.sh"
 ```
 
 ## Quick Start
