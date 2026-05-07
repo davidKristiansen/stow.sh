@@ -1057,3 +1057,53 @@ EOF
     [ "$status" -eq 0 ]
     [ ! -e "$TARGET_DIR/.config" ]
 }
+
+# ============================================================
+# -D/-R without packages auto-discovers subdirs (regression)
+# ============================================================
+
+@test "integration: -D without packages auto-discovers and unstows all subdirs" {
+    # Stow two packages via auto-discovery
+    mkdir -p "$SOURCE_DIR/vim" "$SOURCE_DIR/bash"
+    echo "vimrc" > "$SOURCE_DIR/vim/.vimrc"
+    echo "bashrc" > "$SOURCE_DIR/bash/.bashrc"
+
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR"
+    [ -L "$TARGET_DIR/.vimrc" ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+
+    # Unstow with bare -D (no packages) — should auto-discover and remove all
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR" -D
+    [ ! -e "$TARGET_DIR/.vimrc" ]
+    [ ! -e "$TARGET_DIR/.bashrc" ]
+}
+
+@test "integration: -Dv without packages auto-discovers and unstows all subdirs" {
+    # Same as above but with combined -Dv flag (the original bug report)
+    mkdir -p "$SOURCE_DIR/vim" "$SOURCE_DIR/bash"
+    echo "vimrc" > "$SOURCE_DIR/vim/.vimrc"
+    echo "bashrc" > "$SOURCE_DIR/bash/.bashrc"
+
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR"
+    [ -L "$TARGET_DIR/.vimrc" ]
+    [ -L "$TARGET_DIR/.bashrc" ]
+
+    # Unstow with -Dv — used to default to self-unstow (.) and miss everything
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR" -Dv
+    [ ! -e "$TARGET_DIR/.vimrc" ]
+    [ ! -e "$TARGET_DIR/.bashrc" ]
+}
+
+@test "integration: -R without packages auto-discovers and restows all subdirs" {
+    mkdir -p "$SOURCE_DIR/vim"
+    echo "vimrc" > "$SOURCE_DIR/vim/.vimrc"
+
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR"
+    [ -L "$TARGET_DIR/.vimrc" ]
+
+    # Add a new file and restow with bare -R
+    echo "gvimrc" > "$SOURCE_DIR/vim/.gvimrc"
+    "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR" -R
+    [ -L "$TARGET_DIR/.vimrc" ]
+    [ -L "$TARGET_DIR/.gvimrc" ]
+}

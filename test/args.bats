@@ -204,24 +204,74 @@ parse_no_git() {
 
 # --- Default-to-. when -S/-D/-R given without packages ---
 
-@test "parse_args: -S without packages defaults to ." {
+@test "parse_args: -S without packages auto-discovers subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    mkdir "$tmpdir/vim" "$tmpdir/bash"
+    cd "$tmpdir"
+    parse_no_git -S
+    local -a pkgs
+    mapfile -t pkgs < <(stow_sh::get_stow_packages)
+    [[ ${#pkgs[@]} -eq 2 ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
+}
+
+@test "parse_args: -S without packages defaults to . when no subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    cd "$tmpdir"
     parse_no_git -S
     local -a pkgs
     mapfile -t pkgs < <(stow_sh::get_stow_packages)
     [[ ${#pkgs[@]} -eq 1 ]]
     [[ "${pkgs[0]}" == "." ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
 }
 
-@test "parse_args: -D without packages defaults to ." {
+@test "parse_args: -D without packages auto-discovers subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    mkdir "$tmpdir/vim" "$tmpdir/bash"
+    cd "$tmpdir"
+    parse_no_git -D
+    [[ ${#_stow_sh_unstow_targets[@]} -eq 2 ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
+}
+
+@test "parse_args: -D without packages defaults to . when no subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    cd "$tmpdir"
     parse_no_git -D
     [[ ${#_stow_sh_unstow_targets[@]} -eq 1 ]]
     [[ "${_stow_sh_unstow_targets[0]}" == "." ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
 }
 
-@test "parse_args: -R without packages defaults to ." {
+@test "parse_args: -R without packages auto-discovers subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    mkdir "$tmpdir/vim" "$tmpdir/bash"
+    cd "$tmpdir"
+    parse_no_git -R
+    [[ ${#_stow_sh_restow_targets[@]} -eq 2 ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
+}
+
+@test "parse_args: -R without packages defaults to . when no subdirs" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    cd "$tmpdir"
     parse_no_git -R
     [[ ${#_stow_sh_restow_targets[@]} -eq 1 ]]
     [[ "${_stow_sh_restow_targets[0]}" == "." ]]
+    cd - >/dev/null
+    rm -rf "$tmpdir"
 }
 
 @test "parse_args: -S with packages does NOT default to ." {

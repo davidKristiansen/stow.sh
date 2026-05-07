@@ -349,39 +349,48 @@ stow_sh::parse_args() {
         stow_sh::log debug 2 "Added positional stow target: $1"
     fi
 
-    # Default to "." when -S/-D/-R was used without package arguments
+    # Auto-discover packages when no package arguments were given.
+    # This applies to bare invocation (no flags) AND to -S/-D/-R without
+    # package arguments. In all cases we scan for subdirectories first,
+    # falling back to self-stow/unstow/restow (".") only when none exist.
+    local _discovery_mode=""
+
     if [[ "$explicit_stow" == true && ${#_stow_sh_stow_packages[@]} -eq 0 ]]; then
-        _stow_sh_stow_packages+=(".")
-        stow_sh::log debug 1 "-S without packages — defaulting to self-stow (.)"
-    fi
-    if [[ "$explicit_unstow" == true && ${#_stow_sh_unstow_targets[@]} -eq 0 ]]; then
-        _stow_sh_unstow_targets+=(".")
-        stow_sh::log debug 1 "-D without packages — defaulting to self-unstow (.)"
-    fi
-    if [[ "$explicit_restow" == true && ${#_stow_sh_restow_targets[@]} -eq 0 ]]; then
-        _stow_sh_restow_targets+=(".")
-        stow_sh::log debug 1 "-R without packages — defaulting to self-restow (.)"
+        _discovery_mode="stow"
+    elif [[ "$explicit_unstow" == true && ${#_stow_sh_unstow_targets[@]} -eq 0 ]]; then
+        _discovery_mode="unstow"
+    elif [[ "$explicit_restow" == true && ${#_stow_sh_restow_targets[@]} -eq 0 ]]; then
+        _discovery_mode="restow"
+    elif [[ ${#_stow_sh_stow_packages[@]} -eq 0 && ${#_stow_sh_unstow_targets[@]} -eq 0 && ${#_stow_sh_restow_targets[@]} -eq 0 ]]; then
+        _discovery_mode="stow"
     fi
 
-    # Auto-discover packages if none were specified via -S/-D/-R
-    if [[ ${#_stow_sh_stow_packages[@]} -eq 0 && ${#_stow_sh_unstow_targets[@]} -eq 0 && ${#_stow_sh_restow_targets[@]} -eq 0 ]]; then
+    if [[ -n "$_discovery_mode" ]]; then
         local scan_root
         if [[ -z "$_stow_sh_dir" ]]; then
             scan_root="$(pwd)"
         else
             scan_root="$(realpath "$_stow_sh_dir")"
         fi
-        stow_sh::log debug 1 "No stow targets provided — defaulting to all subdirs in $scan_root"
+        stow_sh::log debug 1 "No packages specified — discovering subdirs in $scan_root"
+
+        local -a _discovered=()
         while IFS= read -r dir; do
             [[ "$dir" == .* ]] && continue
-            _stow_sh_stow_packages+=("$dir")
+            _discovered+=("$dir")
         done < <(find "$scan_root" -mindepth 1 -maxdepth 1 -type d -printf "%f\n")
 
-        # Self-stow fallback: treat the source dir itself as the package
-        if [[ ${#_stow_sh_stow_packages[@]} -eq 0 ]]; then
-            _stow_sh_stow_packages+=(".")
-            stow_sh::log debug 1 "No subdirectories found — self-stow mode (source dir is the package)"
+        # Self-stow/unstow fallback: treat the source dir itself as the package
+        if [[ ${#_discovered[@]} -eq 0 ]]; then
+            _discovered+=(".")
+            stow_sh::log debug 1 "No subdirectories found — using self-stow/unstow mode (.)"
         fi
+
+        case "$_discovery_mode" in
+            stow)   _stow_sh_stow_packages+=("${_discovered[@]}") ;;
+            unstow) _stow_sh_unstow_targets+=("${_discovered[@]}") ;;
+            restow) _stow_sh_restow_targets+=("${_discovered[@]}") ;;
+        esac
     fi
 }
 
@@ -408,4 +417,27 @@ stow_sh::setup_paths() {
 
     stow_sh::log debug 2 "Using source: $_stow_sh_source"
     stow_sh::log debug 2 "Using target: $_stow_sh_target"
+
+    # Resolve package names to absolute paths
+    local -a _resolved=()
+    local _pkg
+    for _pkg in "${_stow_sh_stow_packages[@]}"; do
+        [[ -z "$_pkg" ]] && continue
+        _resolved+=("$(readlink -f "$_stow_sh_source/$_pkg")")
+    done
+    _stow_sh_stow_packages=("${_resolved[@]}")
+
+    _resolved=()
+    for _pkg in "${_stow_sh_unstow_targets[@]}"; do
+        [[ -z "$_pkg" ]] && continue
+        _resolved+=("$(readlink -f "$_stow_sh_source/$_pkg")")
+    done
+    _stow_sh_unstow_targets=("${_resolved[@]}")
+
+    _resolved=()
+    for _pkg in "${_stow_sh_restow_targets[@]}"; do
+        [[ -z "$_pkg" ]] && continue
+        _resolved+=("$(readlink -f "$_stow_sh_source/$_pkg")")
+    done
+    _stow_sh_restow_targets=("${_resolved[@]}")
 }

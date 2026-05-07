@@ -167,11 +167,10 @@ main() {
     local had_error=false
 
     # --- Restow: unstow then stow ---
-    local pkg resolve_output
-    for pkg in "${restow_packages[@]}"; do
-        [[ -z "$pkg" ]] && continue
-        local pkg_dir
-        pkg_dir="$(readlink -f "$source_dir/$pkg")"
+    local pkg_dir resolve_output
+    for pkg_dir in "${restow_packages[@]}"; do
+        [[ -z "$pkg_dir" ]] && continue
+        local pkg="${pkg_dir##*/}"
         stow_sh::log debug 1 "Restowing package: $pkg"
 
         # Unstow phase: skip folding (let __remove_link handle filesystem state)
@@ -208,10 +207,9 @@ main() {
     done
 
     # --- Unstow ---
-    for pkg in "${unstow_packages[@]}"; do
-        [[ -z "$pkg" ]] && continue
-        local pkg_dir
-        pkg_dir="$(readlink -f "$source_dir/$pkg")"
+    for pkg_dir in "${unstow_packages[@]}"; do
+        [[ -z "$pkg_dir" ]] && continue
+        local pkg="${pkg_dir##*/}"
         stow_sh::log debug 1 "Unstowing package: $pkg"
 
         local -a resolved
@@ -233,10 +231,9 @@ main() {
     done
 
     # --- Stow ---
-    for pkg in "${stow_packages[@]}"; do
-        [[ -z "$pkg" ]] && continue
-        local pkg_dir
-        pkg_dir="$(readlink -f "$source_dir/$pkg")"
+    for pkg_dir in "${stow_packages[@]}"; do
+        [[ -z "$pkg_dir" ]] && continue
+        local pkg="${pkg_dir##*/}"
         stow_sh::log debug 1 "Stowing package: $pkg"
 
         local -a resolved
