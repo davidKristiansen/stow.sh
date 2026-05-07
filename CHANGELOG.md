@@ -1,3 +1,11 @@
+## v0.12.2 (2026-05-07)
+
+### Fix
+
+- **args**: -D/-R without packages auto-discovers subdirs instead of defaulting to self-stow
+
+## v0.12.1 (2026-04-22)
+
 ## v0.12.0 (2026-04-22)
 
 ### Feat
