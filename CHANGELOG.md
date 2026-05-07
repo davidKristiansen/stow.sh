@@ -1,3 +1,9 @@
+## v0.13.0 (2026-05-07)
+
+### Feat
+
+- **args**: add mutual exclusion checks for --force/--adopt and -g/-G
+
 ## v0.12.2 (2026-05-07)
 
 ### Fix
