@@ -1,10 +1,19 @@
+<table>
+<tr>
+<td width="120">
+<img src="assets/logo.png" alt="stow.sh logo" width="100">
+</td>
+<td>
+
 # stow.sh
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davetothek/stow.sh/blob/main/LICENSE)
 
-[GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management.
+[GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management. Symlink farm manager with conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
 
-Stow manages dotfiles by creating symlinks from a source directory (your dotfiles repo) into a target directory (your home). stow.sh does the same thing, plus conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
+</td>
+</tr>
+</table>
 
 ## Features
 
