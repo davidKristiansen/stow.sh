@@ -1107,3 +1107,25 @@ EOF
     [ -L "$TARGET_DIR/.vimrc" ]
     [ -L "$TARGET_DIR/.gvimrc" ]
 }
+
+# ============================================================
+# Mutually exclusive flags
+# ============================================================
+
+@test "integration: --force and --adopt rejects with error" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "x" > "$pkg/file"
+    run "$STOW_SH" -G -d "$SOURCE_DIR" -t "$TARGET_DIR" --force --adopt -S pkg
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "integration: -g and -G rejects with error" {
+    local pkg="$SOURCE_DIR/pkg"
+    mkdir -p "$pkg"
+    echo "x" > "$pkg/file"
+    run "$STOW_SH" -g -G -d "$SOURCE_DIR" -t "$TARGET_DIR" -S pkg
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mutually exclusive"* ]]
+}

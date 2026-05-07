@@ -161,6 +161,8 @@ HELPEOF
 stow_sh::parse_args() {
     stow_sh::log debug 3 "parse_args() invoked with args: $*"
     local explicit_git_flag=false
+    local explicit_git_enable=false
+    local explicit_git_disable=false
     local explicit_stow=false
     local explicit_unstow=false
     local explicit_restow=false
@@ -240,12 +242,14 @@ stow_sh::parse_args() {
             -g | --git)
                 _stow_sh_git_mode=true
                 explicit_git_flag=true
+                explicit_git_enable=true
                 stow_sh::log debug 2 "Explicitly enabled git mode"
                 shift
                 ;;
             -G | --no-git)
                 _stow_sh_git_mode=false
                 explicit_git_flag=true
+                explicit_git_disable=true
                 stow_sh::log debug 2 "Explicitly disabled git mode"
                 shift
                 ;;
@@ -321,6 +325,16 @@ stow_sh::parse_args() {
                 ;;
         esac
     done
+
+    # --- Mutual exclusion checks ---
+    if [[ "$_stow_sh_force" == true && "$_stow_sh_adopt" == true ]]; then
+        stow_sh::log error "--force and --adopt are mutually exclusive"
+        exit 1
+    fi
+    if [[ "$explicit_git_enable" == true && "$explicit_git_disable" == true ]]; then
+        stow_sh::log error "-g/--git and -G/--no-git are mutually exclusive"
+        exit 1
+    fi
 
     # Auto-detect git mode when neither -g nor -G was given
     if [[ "$explicit_git_flag" == false ]]; then

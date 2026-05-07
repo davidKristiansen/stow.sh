@@ -287,6 +287,30 @@ parse_no_git() {
     [[ "$(stow_sh::get_dry_run)" == "true" ]]
 }
 
+# --- Mutual exclusion checks ---
+
+@test "parse_args: --force and --adopt are mutually exclusive" {
+    run parse_no_git --force --adopt -S pkg
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "parse_args: -g and -G are mutually exclusive" {
+    run stow_sh::parse_args -g -G -S pkg
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "parse_args: --force alone is allowed" {
+    parse_no_git --force -S pkg
+    [[ "$(stow_sh::get_force)" == "true" ]]
+}
+
+@test "parse_args: --adopt alone is allowed" {
+    parse_no_git --adopt -S pkg
+    [[ "$(stow_sh::is_adopt && echo true || echo false)" == "true" ]]
+}
+
 # --- setup_paths ---
 
 @test "setup_paths: defaults source to pwd" {
