@@ -47,11 +47,11 @@ stow.sh/
 ├── hooks/
 │   └── commit-msg            # Git hook — validates conventional commit format (install via: make hooks)
 ├── test/
-│   ├── args.bats            # Tests for args.sh (33 tests)
+│   ├── args.bats            # Tests for args.sh (41 tests)
 │   ├── conditions.bats      # Tests for conditions, annotations, sanitization, plugins (31 tests)
 │   ├── filter.bats          # Tests for filter.sh (14 tests)
 │   ├── fold.bats            # Tests for fold.sh: folding, barriers, exclusions (24 tests)
-│   ├── integration.bats     # End-to-end tests via bin/stow.sh (32 tests)
+│   ├── integration.bats     # End-to-end tests via bin/stow.sh (62 tests)
 │   ├── scan.bats            # Tests for scan.sh (8 tests)
 │   ├── stow.bats            # Tests for stow.sh: stow/unstow operations (27 tests)
 │   ├── xdg.bats             # Tests for xdg.sh: XDG barrier computation (10 tests)
@@ -298,12 +298,12 @@ chore: bump version to 0.9.0
 - **Framework**: [bats-core](https://github.com/bats-core/bats-core)
 - **Run tests**: `make test` or `bats --verbose-run test/`
 - **Test location**: `test/*.bats`, fixtures in `test/fixtures/`
-- **Current coverage** (255 tests, all passing):
-  - `args.bats` — CLI argument parsing, short-flag expansion, path setup, getters, `-S`/`-D`/`-R` defaulting to `.`, `--dry-run` alias (38)
+- **Current coverage** (261 tests, all passing):
+  - `args.bats` — CLI argument parsing, short-flag expansion, path setup, getters, `-S`/`-D`/`-R` auto-discovery, `--dry-run` alias (41)
   - `conditions.bats` — annotation parsing, path sanitization, condition evaluation, plugins, directory propagation (39)
   - `filter.bats` — git-aware, regex, glob filtering, stowignore directory matching (25)
   - `fold.bats` — directory folding with annotation taint, XDG barriers, filesystem completeness, exclusion awareness (33)
-  - `integration.bats` — end-to-end via `bin/stow.sh`: stow, unstow, restow, folding, XDG barriers, annotations, force, adopt, dry-run, ignore patterns, error cases, idempotency, self-stow, directory condition propagation, auto-unfold, `.stowignore`, report output, `-S`/`-D`/`-R` defaults, ancestor fold point detection (59)
+  - `integration.bats` — end-to-end via `bin/stow.sh`: stow, unstow, restow, folding, XDG barriers, annotations, force, adopt, dry-run, ignore patterns, error cases, idempotency, self-stow, directory condition propagation, auto-unfold, `.stowignore`, report output, `-S`/`-D`/`-R` auto-discovery, ancestor fold point detection (62)
   - `scan.bats` — recursive scanning, dotfiles, annotated filenames, spaces (8)
   - `stow.bats` — stow/unstow operations: symlinks, annotations, conflicts, force, adopt, dry-run, auto-unfold, ancestor fold point detection (43)
   - `xdg.bats` — XDG barrier computation from environment variables (10)
