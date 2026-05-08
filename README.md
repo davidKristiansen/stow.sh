@@ -7,6 +7,14 @@
 
 # stow.sh
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davetothek/stow.sh/blob/main/LICENSE)
+
+[GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management. Symlink farm manager with conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
+
+</td>
+</tr>
+</table>
+
 <!--toc:start-->
 - [stow.sh](#stowsh)
   - [Features](#features)
@@ -31,14 +39,6 @@
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davetothek/stow.sh/blob/main/LICENSE)
-
-[GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management. Symlink farm manager with conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
-
-</td>
-</tr>
-</table>
 
 ## Features
 
