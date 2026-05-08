@@ -1,9 +1,32 @@
 # AGENTS.md — stow.sh
 
+<!--toc:start-->
+- [AGENTS.md — stow.sh](#agentsmd-stowsh)
+  - [Project Overview](#project-overview)
+    - [Key features beyond GNU Stow](#key-features-beyond-gnu-stow)
+  - [Directory Structure](#directory-structure)
+  - [Architecture](#architecture)
+    - [Execution Flow](#execution-flow)
+    - [XDG-Aware Folding](#xdg-aware-folding)
+    - [Condition + Fold Interaction](#condition-fold-interaction)
+    - [Fold Resolution](#fold-resolution)
+    - [Auto-Unfold](#auto-unfold)
+    - [Module Dependency Graph](#module-dependency-graph)
+    - [Naming Conventions](#naming-conventions)
+  - [Known Issues](#known-issues)
+    - [Medium](#medium)
+  - [Development Guidelines](#development-guidelines)
+    - [Commit Convention](#commit-convention)
+    - [Shell Style](#shell-style)
+    - [Testing](#testing)
+    - [When Making Changes](#when-making-changes)
+    - [Releasing / Version Bumps](#releasing-version-bumps)
+<!--toc:end-->
+
 ## Project Overview
 
 **stow.sh** is a pure-Bash reimplementation of GNU Stow — a symlink farm manager for dotfiles.
-Version: `0.11.0` | License: MIT | Author: David Kristiansen
+License: MIT | Author: David Kristiansen
 
 ### Key features beyond GNU Stow
 
@@ -32,8 +55,8 @@ stow.sh/
 │   ├── stow.sh              # Stow/unstow operations (symlink creation/removal, conflict handling, auto-unfold)
 │   ├── xdg.sh               # XDG fold barrier detection from environment variables
 │   ├── conditions.sh        # Annotation parsing, condition evaluation, plugin loader
-│   └── version.sh           # Version constant: STOW_SH_VERSION="0.9.1"
-├── conditions.d/             # Built-in condition predicates (loaded as plugins)
+│   └── version.sh           # Version constant (managed by `make release`)
+├── conditions.d/            # Built-in condition predicates (loaded as plugins)
 │   ├── docker.sh            #   docker — /.dockerenv check
 │   ├── desktop.sh           #   desktop — no battery (stationary machine)
 │   ├── exe.sh               #   exe.<name> — executable in $PATH
@@ -45,7 +68,7 @@ stow.sh/
 │   ├── wm.sh                #   wm.<name> — alias for exe
 │   └── wsl.sh               #   wsl — /proc/version check
 ├── hooks/
-│   └── commit-msg            # Git hook — validates conventional commit format (install via: make hooks)
+│   └── commit-msg           # Git hook — validates conventional commit format (install via: make hooks)
 ├── test/
 │   ├── args.bats            # Tests for args.sh (45 tests)
 │   ├── conditions.bats      # Tests for conditions, annotations, sanitization, plugins (31 tests)
@@ -57,15 +80,15 @@ stow.sh/
 │   ├── xdg.bats             # Tests for xdg.sh: XDG barrier computation (10 tests)
 │   └── fixtures/
 │       └── paths.bats       # Fixture: realistic dotfile path list (unused)
-├── Makefile                  # install / uninstall / hooks / test / release targets
-├── CONTRIBUTING.md           # Development setup, architecture, commit conventions
+├── assets/
+│   └── logo.png             # Project logo (transparent PNG)
+├── Makefile                 # install / uninstall / hooks / test / release targets
+├── CONTRIBUTING.md          # Development setup, architecture, commit conventions
 ├── .github/
 │   └── workflows/
-│       └── release.yml       # CI: test + tarball + GitHub Release on tag push
-├── .editorconfig             # shfmt formatting rules (4-space indent)
-├── .gitignore                # Ignores SHOULD_BE_IGNORED/
-└── SHOULD_BE_IGNORED/        # Test artifact for git-aware filtering validation
-    └── test
+│       └── release.yml      # CI: test + tarball + GitHub Release on tag push
+├── .editorconfig            # shfmt formatting rules (4-space indent)
+└── .gitignore               # Ignores SHOULD_BE_IGNORED/
 ```
 
 ## Architecture
@@ -185,11 +208,11 @@ Input candidates:
   .bashrc
 
 Output:
-  .bashrc                                     (flat file)
-  .config/mise/conf.d/00-core.toml            (individual — tainted subtree)
+  .bashrc                                      (flat file)
+  .config/mise/conf.d/00-core.toml             (individual — tainted subtree)
   .config/mise/conf.d/20-desktop.toml##!docker (individual — annotated)
-  .config/mise/config.toml                    (individual — tainted parent)
-  .config/nvim                                (fold point — clean subtree)
+  .config/mise/config.toml                     (individual — tainted parent)
+  .config/nvim                                 (fold point — clean subtree)
 ```
 
 ### Auto-Unfold

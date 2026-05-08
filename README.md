@@ -7,6 +7,31 @@
 
 # stow.sh
 
+<!--toc:start-->
+- [stow.sh](#stowsh)
+  - [Features](#features)
+  - [Installation](#installation)
+    - [With mise](#with-mise)
+    - [From source](#from-source)
+    - [Uninstall](#uninstall)
+  - [Quick Start](#quick-start)
+    - [Self-stow mode](#self-stow-mode)
+  - [Usage](#usage)
+    - [Filtering priority](#filtering-priority)
+    - [.stowignore](#stowignore)
+  - [Conditional Dotfiles](#conditional-dotfiles)
+    - [Built-in conditions](#built-in-conditions)
+    - [Examples](#examples)
+    - [Directory propagation](#directory-propagation)
+  - [Custom Conditions](#custom-conditions)
+  - [Directory Folding](#directory-folding)
+    - [XDG fold barriers](#xdg-fold-barriers)
+    - [Auto-unfold](#auto-unfold)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
+<!--toc:end-->
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/davetothek/stow.sh/blob/main/LICENSE)
 
 [GNU Stow](https://www.gnu.org/software/stow/) rewritten in pure Bash, with extras for dotfiles management. Symlink farm manager with conditional dotfiles, git-aware filtering, per-package ignore files, and XDG-aware directory folding.
@@ -158,8 +183,8 @@ Annotate files and directories with `##` followed by conditions. Conditions are 
 ```
 filename##condition
 filename##cond1,cond2        # AND: all must pass
-filename##!condition          # NOT: negation
-dir##condition/file           # directory condition propagates to children
+filename##!condition         # NOT: negation
+dir##condition/file          # directory condition propagates to children
 ```
 
 ### Built-in conditions
@@ -180,12 +205,12 @@ dir##condition/file           # directory condition propagates to children
 ### Examples
 
 ```
-.bashrc##shell.bash            # Only if shell is bash
+.bashrc##shell.bash           # Only if shell is bash
 .config/sway##wm.sway/        # Entire directory only if sway is installed
-gpg-agent.conf##!wsl           # Deploy everywhere except WSL
-20-desktop.toml##!docker       # Skip in Docker containers
-.config/tlp##laptop/           # Power management only on laptops
-monitors.xml##desktop          # Static monitor layout on desktops only
+gpg-agent.conf##!wsl          # Deploy everywhere except WSL
+20-desktop.toml##!docker      # Skip in Docker containers
+.config/tlp##laptop/          # Power management only on laptops
+monitors.xml##desktop         # Static monitor layout on desktops only
 .local/lib/stow.sh##no/       # Never deploy (e.g. git submodule)
 ```
 
