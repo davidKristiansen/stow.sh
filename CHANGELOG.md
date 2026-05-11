@@ -1,3 +1,9 @@
+## v0.14.1 (2026-05-11)
+
+### Fix
+
+- **filter**: strip leading / in stowignore patterns for root-anchored matching
+
 ## v0.14.0 (2026-05-11)
 
 ### Feat
