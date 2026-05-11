@@ -87,7 +87,25 @@ stow_sh::match_stowignore() {
 
     local pattern
     for pattern in "${_stow_sh_stowignore_glob[@]}"; do
-        # Match against full relative path and basename
+        # Patterns containing '/' are path-anchored: only match against the
+        # full relative path from the package root (like .gitignore).
+        if [[ "$pattern" == */* ]]; then
+            if [[ "$path" == $pattern ]]; then
+                return 0
+            fi
+            # Also check if the pattern matches an ancestor directory path
+            # so that "src/lib" excludes "src/lib/foo.sh".
+            local dir="${path%/*}"
+            while [[ "$dir" != "$path" && -n "$dir" ]]; do
+                if [[ "$dir" == $pattern ]]; then
+                    return 0
+                fi
+                [[ "$dir" == */* ]] || break
+                dir="${dir%/*}"
+            done
+            continue
+        fi
+        # Unanchored patterns: match against full path, basename, and ancestors.
         if [[ "$path" == $pattern || "$basename" == $pattern ]]; then
             return 0
         fi

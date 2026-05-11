@@ -336,6 +336,81 @@ EOF
   [ "${result[0]}" = ".bashrc" ]
 }
 
+@test "stow_sh::match_stowignore anchors patterns containing / to package root" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("src/lib")
+
+  # Anchored pattern matches exact path
+  run stow_sh::match_stowignore "src/lib"
+  [ "$status" -eq 0 ]
+
+  # Anchored pattern matches descendants
+  run stow_sh::match_stowignore "src/lib/utils.sh"
+  [ "$status" -eq 0 ]
+
+  # Does NOT match basename-only (unanchored would match "lib" anywhere)
+  run stow_sh::match_stowignore "other/lib"
+  [ "$status" -eq 1 ]
+
+  # Does NOT match bare basename
+  run stow_sh::match_stowignore "lib"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::match_stowignore anchored pattern with glob" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("src/*.test.sh")
+
+  # Matches file at anchored path
+  run stow_sh::match_stowignore "src/foo.test.sh"
+  [ "$status" -eq 0 ]
+
+  # Does NOT match same basename elsewhere
+  run stow_sh::match_stowignore "other/foo.test.sh"
+  [ "$status" -eq 1 ]
+
+  # Does NOT match bare basename
+  run stow_sh::match_stowignore "foo.test.sh"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::match_stowignore unanchored pattern still matches anywhere" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("Makefile")
+
+  # Matches at root
+  run stow_sh::match_stowignore "Makefile"
+  [ "$status" -eq 0 ]
+
+  # Matches nested (basename match)
+  run stow_sh::match_stowignore "src/Makefile"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore "a/b/Makefile"
+  [ "$status" -eq 0 ]
+}
+
+@test "stow_sh::filter_candidates with anchored stowignore pattern" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("src/test")
+  _stow_sh_ignore=()
+  _stow_sh_ignore_glob=()
+  _stow_sh_git_mode=false
+
+  local input=$'src/main.sh\nsrc/test/unit.sh\nsrc/test/integration.sh\nother/test/foo.sh\n.bashrc'
+  local -a result
+  mapfile -t result < <(stow_sh::filter_candidates <<< "$input")
+
+  [ "${#result[@]}" -eq 3 ]
+  [ "${result[0]}" = "src/main.sh" ]
+  [ "${result[1]}" = "other/test/foo.sh" ]
+  [ "${result[2]}" = ".bashrc" ]
+}
+
 @test "stow_sh::match_stowignore matches directory pattern against descendant paths" {
   source "$BATS_TEST_DIRNAME/../src/log.sh"
   source "$BATS_TEST_DIRNAME/../src/filter.sh"
