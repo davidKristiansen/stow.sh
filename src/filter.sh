@@ -85,8 +85,41 @@ stow_sh::match_stowignore() {
         return 0
     fi
 
-    local pattern
+    local pattern anchored
     for pattern in "${_stow_sh_stowignore_glob[@]}"; do
+        # Leading '/' anchors to package root (like .gitignore): strip it
+        # and force path-only matching even if no '/' remains.
+        if [[ "$pattern" == /* ]]; then
+            anchored="${pattern#/}"
+            if [[ "$anchored" == */* ]]; then
+                # Has path separators after stripping: match like other anchored patterns
+                if [[ "$path" == $anchored ]]; then
+                    return 0
+                fi
+                # Check ancestor dirs so "/src/lib" excludes "src/lib/foo.sh"
+                local dir="${path%/*}"
+                while [[ "$dir" != "$path" && -n "$dir" ]]; do
+                    if [[ "$dir" == $anchored ]]; then
+                        return 0
+                    fi
+                    [[ "$dir" == */* ]] || break
+                    dir="${dir%/*}"
+                done
+            else
+                # No path separators (e.g. /AGENTS.md, /*.md): only match
+                # root-level files (basename only, path must have no '/')
+                if [[ "$path" != */* && "$basename" == $anchored ]]; then
+                    return 0
+                fi
+                # Check if this matches the first ancestor segment so
+                # "/build" excludes "build/foo.sh"
+                local dir="${path%/*}"
+                if [[ "$dir" != "$path" && -n "$dir" && "$dir" != */* && "$dir" == $anchored ]]; then
+                    return 0
+                fi
+            fi
+            continue
+        fi
         # Patterns containing '/' are path-anchored: only match against the
         # full relative path from the package root (like .gitignore).
         if [[ "$pattern" == */* ]]; then

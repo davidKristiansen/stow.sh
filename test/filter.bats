@@ -320,20 +320,76 @@ EOF
   [ "${result[1]}" = ".config/nvim/init.lua" ]
 }
 
-@test "stow_sh::filter_candidates always excludes .stowignore file" {
+@test "stow_sh::match_stowignore leading / anchors to root (strips slash)" {
   source "$BATS_TEST_DIRNAME/../src/log.sh"
   source "$BATS_TEST_DIRNAME/../src/filter.sh"
-  _stow_sh_stowignore_glob=()
+  _stow_sh_stowignore_glob=("/AGENTS.md")
+
+  # Root file matches
+  run stow_sh::match_stowignore "AGENTS.md"
+  [ "$status" -eq 0 ]
+
+  # Nested copies do NOT match
+  run stow_sh::match_stowignore ".pi/agent/AGENTS.md"
+  [ "$status" -eq 1 ]
+
+  run stow_sh::match_stowignore ".config/nvim/AGENTS.md"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::match_stowignore leading / with directory pattern" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("/build")
+
+  # Root dir matches
+  run stow_sh::match_stowignore "build"
+  [ "$status" -eq 0 ]
+
+  # Descendants match
+  run stow_sh::match_stowignore "build/output.o"
+  [ "$status" -eq 0 ]
+
+  # Nested 'build' does NOT match
+  run stow_sh::match_stowignore "src/build"
+  [ "$status" -eq 1 ]
+
+  run stow_sh::match_stowignore "src/build/output.o"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::match_stowignore leading / with glob" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("/*.md")
+
+  # Root markdown matches
+  run stow_sh::match_stowignore "README.md"
+  [ "$status" -eq 0 ]
+
+  run stow_sh::match_stowignore "AGENTS.md"
+  [ "$status" -eq 0 ]
+
+  # Nested markdown does NOT match
+  run stow_sh::match_stowignore "docs/README.md"
+  [ "$status" -eq 1 ]
+}
+
+@test "stow_sh::filter_candidates with leading-/ stowignore pattern" {
+  source "$BATS_TEST_DIRNAME/../src/log.sh"
+  source "$BATS_TEST_DIRNAME/../src/filter.sh"
+  _stow_sh_stowignore_glob=("/AGENTS.md")
   _stow_sh_ignore=()
   _stow_sh_ignore_glob=()
   _stow_sh_git_mode=false
 
-  local input=$'.bashrc\n.stowignore'
+  local input=$'AGENTS.md\n.pi/agent/AGENTS.md\n.bashrc'
   local -a result
   mapfile -t result < <(stow_sh::filter_candidates <<< "$input")
 
-  [ "${#result[@]}" -eq 1 ]
-  [ "${result[0]}" = ".bashrc" ]
+  [ "${#result[@]}" -eq 2 ]
+  [ "${result[0]}" = ".pi/agent/AGENTS.md" ]
+  [ "${result[1]}" = ".bashrc" ]
 }
 
 @test "stow_sh::match_stowignore anchors patterns containing / to package root" {
