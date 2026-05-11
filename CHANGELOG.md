@@ -1,3 +1,9 @@
+## v0.14.0 (2026-05-11)
+
+### Feat
+
+- **filter**: support path-anchored patterns in .stowignore
+
 ## v0.13.0 (2026-05-07)
 
 ### Feat
